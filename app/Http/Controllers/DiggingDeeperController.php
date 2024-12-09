@@ -1,7 +1,12 @@
 <?php
+
 namespace App\Http\Controllers;
+
 use App\Models\BlogPost;
 use Carbon\Carbon;
+use App\Jobs\ProcessVideoJob;
+use App\Jobs\GenerateCatalog\GenerateCatalogMainJob;
+
 class DiggingDeeperController extends Controller
 {
     /**
@@ -45,7 +50,7 @@ class DiggingDeeperController extends Controller
             //
         }
         $result['where_first'] = $collection
-            ->firstWhere('created_at', '>' , '2020-02-24 03:46:16');
+            ->firstWhere('created_at', '>', '2020-02-24 03:46:16');
         //Базова змінна не змінюється. Вертаємо змінено версію.
         $result['map']['all'] = $collection->map(function ($item) {
             $newItem = new \stdClass();
@@ -55,7 +60,7 @@ class DiggingDeeperController extends Controller
             return $newItem;
         });
         $result['map']['not_exists'] = $result['map']['all']->where('exists', '=', false)->values()->keyBy('item_id');  //витягаємо видалені елементи
-        dd ($result);
+        dd($result);
         //Базова змінна змінюється (трансформується).
         $collection->transform(function ($item) {
             $newItem = new \stdClass();
@@ -94,5 +99,23 @@ class DiggingDeeperController extends Controller
         $sortedAscCollection = $collection->sortBy('created_at');
         $sortedDescCollection = $collection->sortByDesc('item_id');
         dd(compact('sortedSimpleCollection', 'sortedAscCollection', 'sortedDescCollection'));
+    }
+
+    public function processVideo()
+    {
+        ProcessVideoJob::dispatch();
+        // Відкладення виконання завдання від моменту потрапляння в чергу.
+        // Не впливає на паузу між спробами виконання завдання.
+        //->delay(10)
+        //->onQueue('name_of_queue')
+    }
+    /**
+     * @link http://localhost:8000/digging_deeper/prepare-catalog
+     *
+     * php artisan queue:listen --queue=generate-catalog --tries=3 --delay=10
+     */
+    public function prepareCatalog()
+    {
+        GenerateCatalogMainJob::dispatch();
     }
 }
